@@ -42,7 +42,14 @@
     width: 90%; }
 
 /*Social Media Icon List*/
+.container-social {
+  height: 64px;
+}
 
+.social_media_icon_images {
+  height: 32px;
+  width: 32px;
+}
 
 .social-media-list {
     list-style: none;
