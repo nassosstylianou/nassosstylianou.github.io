@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<title>Mexico City Guide</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--top-h:0px}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1a1a;background:#f5f0eb}
+
+/* ── LAYOUT ─────────────────────────────────────────────────── */
+body{display:flex;height:100dvh;overflow:hidden}
+
+.left-panel{width:420px;flex-shrink:0;display:flex;flex-direction:column;background:#1a1a1a;color:#fff;height:100dvh;overflow:hidden}
+.right-panel{flex:1;height:100dvh;overflow-y:auto;padding:0.9rem 0.9rem 4rem;-webkit-overflow-scrolling:touch}
+
+/* ── LEFT PANEL INTERNALS ───────────────────────────────────── */
+.panel-header{padding:1.1rem 1rem 0.5rem;flex-shrink:0}
+.panel-header h1{font-size:1.5rem;font-weight:700;letter-spacing:-0.3px}
+.panel-header p{color:#777;font-size:0.84rem;margin-top:0.15rem}
+
+.search-wrap{padding:0 1rem 0.5rem;position:relative;flex-shrink:0}
+.search-wrap input{width:100%;padding:0.55rem 0.8rem 0.55rem 2rem;background:#242424;border:1px solid #333;border-radius:8px;color:#fff;font-size:0.87rem;outline:none;transition:border-color .15s}
+.search-wrap input:focus{border-color:#555}
+.search-wrap input::placeholder{color:#555}
+.search-icon{position:absolute;left:1.55rem;top:50%;transform:translateY(-50%);font-size:0.72rem;pointer-events:none;opacity:.7}
+
+.filters-wrap{padding:0 1rem 0.5rem;display:flex;gap:0.28rem;flex-wrap:wrap;flex-shrink:0}
+.filter-btn{padding:0.32rem 0.85rem;border-radius:20px;border:1px solid #333;background:transparent;color:#888;cursor:pointer;font-size:0.79rem;font-weight:500;white-space:nowrap;transition:all .12s;flex-shrink:0;display:flex;align-items:center;gap:0.25rem}
+.filter-btn:hover{border-color:#666;color:#ccc}
+.filter-btn.active{background:#fff;color:#1a1a1a;border-color:#fff}
+
+.map-status{padding:0 1rem 0.35rem;font-size:0.7rem;color:#555;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:0.5rem}
+.map-status span{line-height:1.4}
+.reset-btn{background:transparent;border:1px solid #333;color:#888;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.67rem;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .12s}
+.reset-btn:hover{border-color:#666;color:#ccc}
+
+.map-area{flex:1;min-height:0;position:relative}
+#map{height:100%;width:100%}
+
+/* ── CARDS ──────────────────────────────────────────────────── */
+.results-header{display:flex;align-items:baseline;gap:0.5rem;margin-bottom:0.8rem}
+.results-count{font-size:0.8rem;color:#888}
+.in-view-tag{font-size:0.72rem;color:#aaa;font-style:italic}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:0.7rem}
+
+.card{background:#fff;border-radius:10px;padding:1rem;border:1px solid #ece7e0;cursor:pointer;transition:box-shadow .15s,transform .15s;display:flex;flex-direction:column;gap:0}
+.card:hover{box-shadow:0 4px 14px rgba(0,0,0,.09);transform:translateY(-2px)}
+.card.active{box-shadow:0 0 0 2px #1a1a1a;transform:translateY(-2px)}
+
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;margin-bottom:0.3rem}
+.card h3{font-size:0.9rem;font-weight:600;line-height:1.3}
+.badge{display:inline-flex;align-items:center;gap:0.18rem;padding:0.14rem 0.48rem;border-radius:20px;font-size:0.65rem;font-weight:700;white-space:nowrap;flex-shrink:0}
+
+.michelin-row{display:flex;align-items:center;gap:0.35rem;margin-bottom:0.3rem;flex-wrap:wrap}
+.michelin-badge{display:inline-flex;align-items:center;gap:0.2rem;background:#1a1a1a;color:#f5c842;padding:0.1rem 0.45rem;border-radius:4px;font-size:0.64rem;font-weight:700}
+.michelin-stars{letter-spacing:0.05em}
+
+.meta-row{font-size:0.72rem;color:#999;margin-bottom:0.3rem;display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap}
+.meta-sep{color:#ddd}
+.hours-val{color:#999;font-size:0.62rem}
+
+.card-desc{font-size:0.79rem;color:#555;line-height:1.5;flex:1}
+.note-booking{margin-top:0.45rem;font-size:0.7rem;color:#c0392b;font-weight:600;display:flex;align-items:flex-start;gap:0.25rem}
+.note-award{margin-top:0.4rem;font-size:0.68rem;color:#92400e;font-weight:600;background:#fef3c7;border:1px solid #fde68a;padding:0.18rem 0.45rem;border-radius:4px;display:inline-flex;align-items:center;gap:0.25rem}
+.note-info{margin-top:0.35rem;font-size:0.67rem;color:#888;font-style:italic}
+.michelin-rec{display:inline-flex;align-items:center;gap:0.2rem;background:#fef3c7;color:#92400e;border:1px solid #fde68a;padding:0.1rem 0.45rem;border-radius:4px;font-size:0.64rem;font-weight:700}
+.price-display{font-size:0.64rem;font-weight:700;letter-spacing:0.01em}
+.price-lit{color:#1a1a1a}
+.price-dim{color:#ddd}
+.price-free{font-size:0.61rem;color:#059669;font-weight:700;background:#d1fae5;padding:0.07rem 0.3rem;border-radius:3px}
+
+.card-links{display:flex;gap:0.5rem;margin-top:0.6rem;flex-wrap:wrap}
+.card-links a{display:inline-flex;align-items:center;gap:0.2rem;font-size:0.7rem;color:#555;text-decoration:none;border:1px solid #e0dbd4;border-radius:5px;padding:0.18rem 0.5rem;transition:all .12s;white-space:nowrap}
+.card-links a:hover{background:#f5f0eb;border-color:#ccc;color:#1a1a1a}
+
+.no-results{text-align:center;padding:4rem 1rem;color:#aaa;grid-column:1/-1}
+.no-results p{font-size:1rem;margin-bottom:0.3rem;color:#888}
+
+/* ── BADGE COLOURS ──────────────────────────────────────────── */
+.cat-restaurant{background:#fee2e2;color:#991b1b}
+.cat-taqueria{background:#ffedd5;color:#9a3412}
+.cat-cafe{background:#fef9c3;color:#854d0e}
+.cat-museum{background:#dbeafe;color:#1e40af}
+.cat-landmark{background:#d1fae5;color:#065f46}
+.cat-park{background:#dcfce7;color:#166534}
+.cat-activity{background:#ede9fe;color:#5b21b6}
+.cat-bar{background:#fae8ff;color:#86198f}
+.cat-market{background:#e0f2fe;color:#0c4a6e}
+.cat-shopping{background:#fce7f3;color:#9d174d}
+
+/* ── LEAFLET POPUP ──────────────────────────────────────────── */
+.leaflet-popup-content{font-size:0.82rem;line-height:1.5;min-width:150px}
+.leaflet-popup-content strong{display:block;margin-bottom:0.15rem;font-size:0.86rem}
+.popup-sub{color:#666;font-size:0.74rem}
+.popup-hours{color:#555;font-size:0.73rem;margin-top:0.15rem}
+
+/* ── SEARCH HINT ─────────────────────────────────────────────── */
+.search-hint{font-size:0.72rem;color:#aaa;padding:0 1rem 0.45rem;display:none;line-height:1.4}
+.search-hint.visible{display:block}
+.search-hint.no-results{color:#e06c5a}
+
+/* ── MOBILE ─────────────────────────────────────────────────── */
+@media(max-width:720px){
+  body{flex-direction:column;height:auto;min-height:100dvh;overflow-y:auto;overflow-x:hidden}
+  .left-panel{width:100%;height:auto;flex-shrink:0}
+  .panel-header{padding:0.85rem 0.9rem 0.4rem;padding-top:calc(0.85rem + env(safe-area-inset-top,0))}
+  .panel-header h1{font-size:1.25rem}
+  .search-wrap{padding:0 0.9rem 0.45rem}
+  .filters-wrap{padding:0 0.9rem 0.45rem}
+  .map-status{padding:0 0.9rem 0.35rem;transition:opacity .2s}
+  .map-area{height:46svh;flex:none;transition:height .25s ease,opacity .25s ease}
+  .right-panel{flex:1;height:auto;overflow-y:visible;padding:0.85rem 0.85rem 5rem}
+  .grid{grid-template-columns:1fr}
+  body.panel-open .right-panel{display:none}
+  /* Collapse map while keyboard is open so results are reachable */
+  body.searching .map-area{height:20svh!important;opacity:0.7}
+  body.searching .map-status{opacity:0;pointer-events:none}
+}
+@media(min-width:721px) and (max-width:1024px){
+  .left-panel{width:340px}
+  .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- LEFT PANEL -->
+<div class="left-panel">
+  <div class="panel-header">
+    <h1>Mexico City</h1>
+    <p>Restaurants · Bars · Cafes · Museums · Activities</p>
+  </div>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="Search name, area, type…" autocomplete="off"/>
+  </div>
+  <div class="filters-wrap" id="filtersWrap">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="restaurant">🍽 Restaurant</button>
+    <button class="filter-btn" data-filter="taqueria">🌮 Taqueria</button>
+    <button class="filter-btn" data-filter="cafe">☕ Cafe</button>
+    <button class="filter-btn" data-filter="bar">🍹 Bar</button>
+    <button class="filter-btn" data-filter="museum">🏛 Museum</button>
+    <button class="filter-btn" data-filter="landmark">📍 Landmark</button>
+    <button class="filter-btn" data-filter="park">🌳 Park &amp; Area</button>
+    <button class="filter-btn" data-filter="activity">🎉 Activity</button>
+    <button class="filter-btn" data-filter="market">🛒 Market</button>
+    <button class="filter-btn" data-filter="shopping">🛍 Shopping</button>
+  </div>
+  <div class="search-hint" id="searchHint"></div>
+  <div class="map-status">
+    <span id="mapStatus">Loading…</span>
+    <button class="reset-btn" id="resetView">Reset view</button>
+  </div>
+  <div class="map-area">
+    <div id="map"></div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="right-panel">
+  <div class="results-header">
+    <span class="results-count" id="resultsCount"></span>
+    <span class="in-view-tag" id="inViewTag"></span>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+const CATS = {
+  restaurant:{label:"Restaurant", icon:"🍽", color:"#e74c3c"},
+  taqueria:  {label:"Taqueria",   icon:"🌮", color:"#e67e22"},
+  cafe:      {label:"Cafe & Bakery",icon:"☕",color:"#c9a227"},
+  museum:    {label:"Museum",     icon:"🏛", color:"#2980b9"},
+  landmark:  {label:"Landmark",   icon:"📍", color:"#27ae60"},
+  park:      {label:"Park & Area",icon:"🌳", color:"#16a085"},
+  activity:  {label:"Activity",   icon:"🎉", color:"#8e44ad"},
+  bar:       {label:"Bar",        icon:"🍹", color:"#6c3483"},
+  market:    {label:"Market",     icon:"🛒", color:"#0e6251"},
+  shopping:  {label:"Shopping",   icon:"🛍", color:"#c0392b"},
+};
+
+// michelin: 1=one star, 2=two stars, "rec"=recommended/bib
+const PLACES = [
+  // ── RESTAURANTS ────────────────────────────────────────────────────
+  {name:"Restaurante Rosetta",category:"restaurant",area:"Roma Norte",lat:19.4198,lng:-99.1597,
+   michelin:1,instagram:"restauranterosetta",website:"https://rosetta.com.mx",
+   hours:"Mon–Sat 1:30pm–11:30pm · Sun 1:30pm–6pm",
+   description:"Michelin-starred Italian-Mexican restaurant led by chef Elena Reygadas. One of Roma Norte's most celebrated dining spots — elegant, creative and unmissable.",
+   note:"Book well in advance.",booked:"Tue 7 Apr · 13:30"},
+  {name:"Blanco Colima",category:"restaurant",area:"Roma Norte",lat:19.4197,lng:-99.1599,
+   michelin:null,instagram:"blancocolima",website:null,
+   hours:null,
+   description:"Stylish Mexican restaurant in Roma Norte known for creative dishes and a vibrant, convivial atmosphere. Great for a nicer dinner out.",note:null},
+  {name:"Esquina Común",category:"restaurant",area:"Condesa",lat:19.4139,lng:-99.1768,
+   michelin:null,instagram:"esquinacomun",website:null,
+   hours:null,
+   description:"Popular neighbourhood restaurant with Mexican-inspired food and a lively, casual vibe. A reliable and buzzy choice for any meal.",note:null},
+  {name:"Quintonil",category:"restaurant",area:"Polanco",lat:19.4308,lng:-99.1918,
+   michelin:2,instagram:"quintonil_mx",website:"https://quintonil.com",
+   hours:"Mon–Sat 1:30pm–11pm · Closed Sunday",
+   description:"2-star Michelin restaurant helmed by chef Jorge Vallejo. Celebrates Mexican ingredients with extraordinary finesse. One of Mexico's very best restaurants.",
+   note:"Book months in advance.",booked:"Sat 11 Apr · Lunch"},
+  {name:"Pujol",category:"restaurant",area:"Polanco",lat:19.4323,lng:-99.1947,
+   michelin:2,instagram:"pujolrestaurant",website:"https://pujol.com.mx",
+   hours:"Mon–Sat 1:30pm–11pm · Closed Sunday",
+   description:"2-star Michelin and world-famous restaurant by chef Enrique Olvera. Regularly ranked among the top restaurants in the world. A pilgrimage for food lovers.",
+   note:"Book months in advance."},
+  {name:"La Gruta",category:"restaurant",area:"Teotihuacan",lat:19.6889,lng:-98.8397,
+   michelin:null,instagram:null,website:null,
+   hours:"Daily 9am–6pm (approx)",
+   description:"A unique restaurant set inside a natural cave near the Teotihuacan pyramids. A magical and memorable lunch spot after a morning exploring the ancient city.",note:null},
+  {name:"Jenni's Quesadillas",category:"restaurant",area:"Roma Norte",lat:19.4206,lng:-99.1580,
+   michelin:null,instagram:"jennisquesadillas",website:null,
+   hours:null,
+   description:"A beloved local spot for handmade quesadillas in Roma. Honest, delicious and hugely popular with the neighbourhood crowd.",note:null},
+  {name:"El Tizoncitp",category:"restaurant",area:"Condesa",lat:19.4098,lng:-99.1752,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"Popular taco and antojito spot in Roma. Known for great food at excellent value — a solid, no-frills neighbourhood lunch option.",note:null},
+  {name:"El Pescadito",category:"restaurant",area:"Condesa",lat:19.4144,lng:-99.1734,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"Beloved casual spot for fish and shrimp tacos in Roma/Condesa. Simple, fresh and very popular with locals.",note:null},
+  {name:"Gracias Madre",category:"restaurant",area:"Roma Norte",lat:19.4198,lng:-99.1574,
+   michelin:null,instagram:"graciasmadremx",website:null,
+   hours:null,
+   description:"Creative plant-based Mexican restaurant in Condesa. Excellent vegan tacos and dishes — meat-free eating without compromising on flavour.",note:null},
+  {name:"Taverna",category:"restaurant",area:"Juárez",lat:19.4299,lng:-99.1528,
+   michelin:null,instagram:"taverna.cdmx",website:null,
+   hours:"Tue–Sat 1pm–11pm · Closed Monday",
+   description:"A beautifully designed restaurant in Roma Norte with a stunning plant-filled courtyard. Featured in multiple best-of-CDMX guides for its atmosphere and food.",note:null},
+  {name:"Martinez",category:"restaurant",area:"Roma Norte",lat:19.4203,lng:-99.1600,
+   michelin:null,instagram:null,website:null,
+   hours:"Tue–Sat 1:30pm–11pm · Sun closes 6pm · Closed Monday",
+   description:"An intimate, highly regarded restaurant in Polanco with exceptional food and wine. Small, cosy and worth every effort to get a table.",note:null},
+  {name:"Maizajo",category:"restaurant",area:"Roma Norte",lat:19.4238,lng:-99.1613,
+   michelin:null,instagram:"maizajo",website:null,
+   hours:"Tue–Sun 1pm–10pm · Closed Monday",
+   description:"A celebrated restaurant known for its extraordinary rib-eye taco — described by many visitors as the best taco of their trip. Creative Mexican cooking at its finest.",note:null},
+  {name:"Contramar",category:"restaurant",area:"Roma Norte",lat:19.4196,lng:-99.1671,
+   michelin:null,instagram:null,website:null,
+   hours:"Daily 1pm–6:30pm",
+   description:"One of Mexico City's most iconic restaurants — a legendary seafood institution in Roma serving exceptional tostadas de atún and perfectly grilled fish since 1998. Always packed, always brilliant.",
+   note:null,booked:"Sun 12 Apr · 12:00 & Mon 13 Apr · 13:00"},
+  {name:"Entremar",category:"restaurant",area:"Polanco",lat:19.4330,lng:-99.1881,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A celebrated seafood restaurant in Roma Norte drawing comparisons to Contramar. Fresh, elegant cooking with an emphasis on quality Mexican coastal produce — very popular with locals.",
+   note:null,booked:"Fri 10 Apr · Lunch"},
+  {name:"Botánico",category:"restaurant",area:"Hipódromo",lat:19.4069,lng:-99.1737,
+   michelin:null,instagram:null,website:null,
+   hours:"Tue–Sat 1:30pm–11pm · Closed Sunday–Monday",
+   description:"A beautiful restaurant in Roma Norte with a lush plant-filled interior and a menu of inventive modern Mexican cooking. One of the neighbourhood's most atmospheric and acclaimed dining experiences.",
+   note:"Book ahead.",booked:"Thu 9 Apr · 19:00"},
+  {name:"La Bonvi",category:"restaurant",area:"Polanco",lat:19.4290,lng:-99.1985,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A lively and much-loved restaurant in Polanco popular with locals for its excellent food and convivial atmosphere. A reliable and very enjoyable lunch or dinner choice in the neighbourhood.",note:null},
+  {name:"Maximo Bistrot",category:"restaurant",area:"Roma Norte",lat:19.4152,lng:-99.1620,
+   michelin:"rec",instagram:"maximobistrot",website:"https://www.maximobistrot.com.mx/en",
+   hours:"Mon–Sat 1pm–11:30pm · Closed Sunday",
+   description:"A Michelin-recommended bistrot by chef Eduardo García in Roma Norte. Seasonal, market-driven cooking in a beautiful space with a garden terrace. One of the city's most consistently praised and beloved restaurants.",note:null},
+  {name:"Em",category:"restaurant",area:"Roma Norte",lat:19.4151,lng:-99.1620,
+   michelin:null,instagram:null,website:null,
+   hours:"Tue–Sat 1:30pm–11pm · Closed Sunday–Monday",
+   description:"An intimate, refined restaurant by chef Edgar Núñez in Polanco. Creative contemporary Mexican tasting menus using exceptional seasonal ingredients. A serious dining destination.",
+   note:"Book well in advance."},
+  {name:"Carmela y Sal",category:"restaurant",area:"Lomas de Virreyes",lat:19.4255,lng:-99.2034,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A warmly regarded neighbourhood restaurant in Roma Norte with excellent Mexican cooking, a relaxed atmosphere and a loyal local following. A solid and satisfying dinner choice.",note:null},
+
+  // ── TAQUERIAS ──────────────────────────────────────────────────────
+  {name:"Taqueria La Cocuyos",category:"taqueria",area:"Centro Histórico",lat:19.4338,lng:-99.1325,
+   michelin:null,instagram:null,website:null,
+   hours:"Daily ~6pm–4am (best after midnight)",
+   description:"Anthony Bourdain-recommended late-night taqueria in Centro. Famous for its cabeza and traditional taco fillings served from a street counter. A true classic.",note:null},
+  {name:"Taqueria Orinoco",category:"taqueria",area:"Roma",lat:19.4174,lng:-99.1635,
+   michelin:null,instagram:"taqueriaorinoco",website:null,
+   hours:"Daily ~12pm–12am",
+   description:"Popular modern taqueria beloved by locals in Roma. Known for excellent norteño-style tacos — especially arrachera and al pastor. Always busy for a reason.",note:null},
+  {name:"El Turix",category:"taqueria",area:"Polanco",lat:19.4313,lng:-99.2013,
+   michelin:null,instagram:"elturixpolanco",website:null,
+   hours:"Mon–Sat ~8am–5pm (sells out early)",
+   description:"A legendary Yucatecan taqueria in Polanco, famous for exceptional cochinita pibil — slow-roasted pork marinated in achiote, piled into fresh tortillas. One of the best tacos in the city.",note:"Gets very busy at lunch — arrive early."},
+  {name:"Taqueria El Turco",category:"taqueria",area:"Polanco",lat:19.4289,lng:-99.1995,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"The best cochinita pibil in Polanco — slow-roasted Yucatecan pork that falls apart beautifully. An authentic taste of southeast Mexico in a posh neighbourhood.",note:null},
+  {name:"El Califa de León",category:"taqueria",area:"San Rafael",lat:19.4416,lng:-99.1600,
+   michelin:1,instagram:"elcalifadeleon",website:null,
+   hours:"Daily 1pm–3:30am",
+   description:"Mexico City's most celebrated taqueria — holder of a Michelin star for both 2024 and 2025. A tiny counter serving extraordinary tacos, proof that greatness comes in simple forms.",
+   note:null},
+  {name:"Expendio de Maíz",category:"restaurant",area:"Roma Norte",lat:19.4142,lng:-99.1627,
+   michelin:1,instagram:"expendiodemaiz",website:null,
+   hours:"Tue–Sun 1pm–10pm · Closed Monday",
+   description:"A Michelin-starred hidden gem operating out of a basic market setting. Specialises in masa-based dishes and traditional Mexican corn cookery. An extraordinary find.",
+   note:null},
+  {name:"Mi Compa Chava",category:"restaurant",area:"Roma Norte",lat:19.4152,lng:-99.1621,
+   michelin:null,instagram:"micompachava",website:null,
+   hours:"Mon–Sat 9am–6pm · Closed Sunday",
+   description:"Famous for exceptional seafood — a lively, bustling spot packed with locals. From the 72-hour CDMX eating guide as a must-visit. Get there early.",note:null},
+  {name:"Tacos del Valle",category:"taqueria",area:"Roma Norte",lat:19.4179,lng:-99.1606,
+   michelin:"rec",instagram:"tacosdelvalle",website:null,
+   hours:"Mon–Sat ~1pm–10pm · Closed Sunday",
+   description:"A Michelin-recommended taqueria in the residential Del Valle neighbourhood. Worth the journey south — expect a queue of around 45 minutes.",
+   note:"Michelin recommended. Expect a wait."},
+  {name:"Tacos El Paisa",category:"taqueria",area:"San Rafael",lat:19.4414,lng:-99.1633,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"Featured in the definitive 72-hour CDMX eating guide alongside Michelin-starred spots. A no-frills street taco experience that punches well above its weight.",note:null},
+  {name:"El Compita",category:"taqueria",area:"Roma Sur",lat:19.4024,lng:-99.1623,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A local favourite taqueria in Roma, recommended by food-focused guides as one of the most authentic and satisfying taco spots in the neighbourhood.",note:null},
+  {name:"La Hortaliza",category:"taqueria",area:"Condesa",lat:19.4184,lng:-99.1776,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A local favourite taqueria in Roma Norte recommended as a key stop on Sunday taco crawls through the neighbourhood. Fresh ingredients, big flavours and a reliably great experience.",note:null},
+  {name:"Siembra Tortilleria",category:"restaurant",area:"Polanco",lat:19.4344,lng:-99.1876,
+   michelin:null,instagram:"siembratortilleria",website:null,
+   hours:null,
+   description:"A celebrated tortilleria in Roma Norte dedicated to heritage corn and traditional masa. Exceptional hand-made tortillas and simple, brilliant tacos — a must on any Sunday Roma taco crawl.",note:null},
+
+  // ── CAFES & BAKERIES ───────────────────────────────────────────────
+  {name:"Pasteleria Ideal",category:"cafe",area:"Centro Histórico",lat:19.4343,lng:-99.1388,
+   michelin:null,instagram:"pasteleraideal",website:null,
+   hours:"Daily 6am–9pm",
+   description:"A legendary Mexico City bakery operating since 1927. Famous for its enormous selection of pastries, pan dulce and elaborate cakes. A true institution.",note:null},
+  {name:"Panaderia Rosetta",category:"cafe",area:"Roma Norte",lat:19.4196,lng:-99.1601,
+   michelin:null,instagram:"panaderiarosetta",website:null,
+   hours:"Mon–Sat 7am–9pm · Sun 8am–5pm",
+   description:"Chef Elena Reygadas' celebrated bakery in Roma Norte. Famous for its guava roll and exceptional pastries. Expect a morning queue — worth every minute.",note:null},
+  {name:"Finca Don Porfirio",category:"cafe",area:"Centro Histórico",lat:19.4342,lng:-99.1416,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"Coffee shop on the top floor of the old Sears building in Centro, offering stunning rooftop views over Palacio de Bellas Artes. One of the best views in the city over a coffee.",note:null},
+  {name:"Cafeteria El Pendulo",category:"cafe",area:"Condesa",lat:19.4106,lng:-99.1730,
+   michelin:null,instagram:"libreriapendulo",website:null,
+   hours:null,
+   description:"A charming cafe inside a beautiful independent bookshop in Condesa. Perfect for coffee, drinks and a browse. A quintessential neighbourhood gem.",note:null},
+  {name:"Farmacia Internacional",category:"cafe",area:"Juarez",lat:19.4286,lng:-99.1518,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A beloved brunch spot in the Juarez neighbourhood. Great for a lazy Sunday morning with coffee and Mexican breakfast classics in a relaxed setting.",note:null},
+  {name:"Cafe Nin",category:"cafe",area:"Juarez",lat:19.4253,lng:-99.1608,
+   michelin:null,instagram:"cafe_nin",website:null,
+   hours:null,
+   description:"Stylish all-day cafe and restaurant in Juarez. A popular Sunday brunch spot with a relaxed atmosphere and excellent food. A neighbourhood favourite.",note:null},
+  {name:"Ritmo Café",category:"cafe",area:"Roma Norte",lat:19.4182,lng:-99.1659,
+   michelin:null,instagram:"ritmocafe.mx",website:null,
+   hours:"Mon–Fri 8am–6pm · Sat–Sun 9am–6pm",
+   description:"A viral cafe on Medellin in Roma Norte famous for its thin, golden pancakes with mascarpone and honey. Comes with a DJ, a comfortable terrace and a very cool atmosphere.",note:null},
+  {name:"Odette",category:"cafe",area:"Hipódromo",lat:19.4152,lng:-99.1678,
+   michelin:null,instagram:"odette__________",website:null,
+   hours:"Tue–Sun ~8am–5pm · Closed Monday",
+   description:"Consistently listed among the very best bakeries in the city. Known for exceptional pastries and cookies — a must-visit for anyone with a sweet tooth in Roma.",note:null},
+  {name:"Sede Café",category:"cafe",area:"Roma Norte",lat:19.4170,lng:-99.1628,
+   michelin:null,instagram:"sede.cafe",website:null,
+   hours:"Mon–Sat ~8am–6pm · Closed Sunday",
+   description:"A compact, seriously good specialty coffee shop in Roma Norte. Minimal, focused and beloved by the neighbourhood's coffee-obsessed locals.",note:null},
+  {name:"Kiyo",category:"cafe",area:"Roma Norte",lat:19.4158,lng:-99.1640,
+   michelin:null,instagram:"kiyo.cafe",website:null,
+   hours:"Mon–Sat ~8am–6pm · Closed Sunday",
+   description:"A beautifully designed cafe and bakery in Roma Norte with excellent coffee and pastries. A favourite morning stop cited in multiple best-of-CDMX cafe roundups.",note:null},
+  {name:"Lardo Mexico",category:"cafe",area:"Condesa",lat:19.4185,lng:-99.1762,
+   michelin:null,instagram:"lardomexico",website:null,
+   hours:"Mon–Fri 8am–10pm · Sat–Sun 9am–10pm",
+   description:"A beloved all-day cafe and restaurant in Roma Norte, great for breakfast through to dinner. Known for excellent food, a beautiful space and consistent quality.",note:null},
+  {name:"Librería Porrúa Chapultepec",category:"cafe",area:"Chapultepec",lat:19.4251,lng:-99.1876,
+   michelin:null,instagram:null,website:"https://www.porrua.mx",
+   hours:"Mon–Sat 10am–8pm · Sun 11am–7pm",
+   description:"Described as the dreamiest bookstore and cafe in CDMX — a stunning open-air space right beside Chapultepec lake, surrounded by books, nature and great coffee.",note:null},
+  {name:"Curva Cafe",category:"cafe",area:"Centro Histórico",lat:19.4328,lng:-99.1470,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A thoughtfully designed specialty coffee spot at Artículo 123, on the edge of Centro Histórico. A great pitstop while exploring the historic centre.",note:null},
+  {name:"Churrería El Moro",category:"cafe",area:"Centro Histórico",lat:19.4325,lng:-99.1370,
+   michelin:null,instagram:"churrerinaelmoro",website:"https://elmoro.mx",
+   hours:"Open 24 hours",
+   description:"One of Mexico City's most legendary institutions — serving perfect churros dipped in hot chocolate since 1935. The flagship Centro location never closes. A city icon.",note:null},
+  {name:"El Parador",category:"cafe",area:"Centro Histórico",lat:19.4330,lng:-99.1348,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"Río Pánico 215 — widely claimed to serve the best churros in Mexico City. Fresh, traditional and made to order. A street food experience not to be missed.",note:null},
+  {name:"Fougasse",category:"cafe",area:"Condesa",lat:19.4120,lng:-99.1720,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A beloved artisan bakery in Roma Norte recommended by locals for exceptional pastries and freshly baked bread. A neighbourhood favourite for morning coffee and a buttery start to the day.",note:null},
+  {name:"Huset",category:"cafe",area:"Roma Norte",lat:19.4188,lng:-99.1637,
+   michelin:null,instagram:"husetroma",website:null,
+   hours:null,
+   description:"A beautifully designed Scandinavian-inspired cafe and brunch spot in Roma with excellent coffee, natural wine and a calm, minimal interior. A neighbourhood favourite for leisurely mornings.",note:null},
+  {name:"Ficelle",category:"cafe",area:"Condesa",lat:19.4129,lng:-99.1726,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"An artisan bakery in Roma Norte with exceptional French-inspired breads and pastries. Consistently praised by local food guides as one of the best bakeries in the city.",note:null},
+  {name:"Saint",category:"cafe",area:"Hipódromo",lat:19.4078,lng:-99.1771,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A highly regarded bakery in Roma Norte known for beautifully crafted pastries, exceptional sourdough and specialty coffee. One of CDMX's most praised neighbourhood bakeries.",note:null},
+  {name:"Green Rhino",category:"cafe",area:"Roma Norte",lat:19.4196,lng:-99.1630,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A beloved artisan bakery and cafe in Roma Norte recommended for its exceptional pastries and specialty coffee. A neighbourhood staple and a perfect morning stop.",note:null},
+
+  // ── BARS ───────────────────────────────────────────────────────────
+  {name:"Handshake Speakeasy",category:"bar",area:"Juarez",lat:19.4244,lng:-99.1649,
+   michelin:null,instagram:"handshakedrinkslab",website:"https://handshakedrinkslab.com",
+   hours:"Tue–Sat ~6pm–2am · Closed Sun–Mon",
+   description:"Ranked #2 bar in the entire world on the World's 50 Best Bars list. An intimate speakeasy in Juarez with extraordinary cocktails. Pre-booking essential.",
+   note:"#2 in the World's 50 Best Bars. Book ahead."},
+  {name:"Tlecan",category:"bar",area:"Roma Norte",lat:19.4169,lng:-99.1654,
+   michelin:null,instagram:"tlecan",website:null,
+   hours:"Tue–Sun ~6pm–2am · Closed Monday",
+   description:"Ranked #3 in North America and #23 in the World's 50 Best Bars. A stunning, atmospheric bar in Juarez with cocktails rooted in Mexican spirits and flavours.",
+   note:"#3 North America · #23 World's 50 Best Bars"},
+  {name:"Bar Mauro",category:"bar",area:"Roma Norte",lat:19.4195,lng:-99.1593,
+   michelin:null,instagram:"barmauromx",website:null,
+   hours:"Tue–Sun ~7pm–2am · Closed Monday",
+   description:"Ranked #14 in North America's 50 best bars. A sleek, intimate cocktail bar in Roma Norte — famous for its mango salad cocktail and impeccable drinks programme.",
+   note:"#14 North America's 50 Best Bars"},
+  {name:"Café de Nadie",category:"bar",area:"Roma Norte",lat:19.4175,lng:-99.1597,
+   michelin:null,instagram:"cafedenadiedistillers",website:null,
+   hours:"Tue–Sun ~6pm–2am · Closed Monday",
+   description:"A vinyl cocktail bar ranked #47 in North America's 50 best bars. Combine it with dinner at nearby Tacos del Valle — it's just around the corner.",
+   note:"#47 North America's 50 Best Bars"},
+  {name:"Koto del Valle",category:"bar",area:"Juárez",lat:19.4271,lng:-99.1624,
+   michelin:null,instagram:"kotodelvalle",website:null,
+   hours:"Tue–Sun ~6pm–2am · Closed Monday",
+   description:"An east Asian-inspired cocktail bar in Del Valle — innovative, beautifully executed drinks with a focus on umami and botanical flavours. A top spot on North America's best bars lists.",note:null},
+  {name:"Salon Palomilla",category:"bar",area:"Roma Norte",lat:19.4142,lng:-99.1626,
+   michelin:null,instagram:"salonpalomilla",website:null,
+   hours:"Wed–Mon ~6pm–2am · Closed Tuesday",
+   description:"One of the coolest bar designs in the city — a roofless speakeasy in Roma Norte. Teal walls, candlelight and open skies make it one of the most atmospheric drinking dens in CDMX.",note:null},
+  {name:"Rimessa",category:"bar",area:"Roma Norte",lat:19.4183,lng:-99.1616,
+   michelin:null,instagram:"rimessa.mx",website:null,
+   hours:"Tue–Sun ~6pm–1am · Closed Monday",
+   description:"A charming wine bar in Roma Norte with a great natural wine list, good food and an easy-going neighbourhood vibe. Perfect for an early evening glass.",note:null},
+  {name:"Terraza Catedral",category:"bar",area:"Centro Histórico",lat:19.4352,lng:-99.1336,
+   michelin:null,instagram:"terrazacatedral",website:null,
+   hours:null,
+   description:"A rooftop bar in Centro with sweeping views directly over the Catedral Metropolitana and the Zócalo. A magical and dramatic setting for evening drinks.",note:null},
+  {name:"Miralto Bar — Torre Latinoamericana",category:"bar",area:"Centro Histórico",lat:19.4338,lng:-99.1406,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A bar on the 41st floor of the Torre Latinoamericana skyscraper with panoramic 360° views over the entire city. A spectacular perch for a sunset cocktail.",note:null},
+  {name:"Salon Ríos",category:"bar",area:"Cuauhtémoc",lat:19.4285,lng:-99.1689,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A classic Mexico City cantina in Roma Norte — lively, atmospheric and beloved by locals. Great for mezcal, cold beer and a genuinely authentic neighbourhood drinking experience.",note:null},
+  {name:"Da Rosa",category:"bar",area:"Juárez",lat:19.4280,lng:-99.1547,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A refined wine bar and delicatessen in Roma Norte with an excellent natural wine selection and beautifully executed small plates. Perfect for a relaxed early evening drink.",note:null},
+  {name:"Palapa Cantina",category:"bar",area:"Juárez",lat:19.4258,lng:-99.1567,
+   michelin:null,instagram:null,website:null,
+   hours:null,
+   description:"A lively cantina in Roma Norte with a fun, festive atmosphere, strong drinks and excellent botanas. A neighbourhood favourite for a casual and sociable evening out.",note:null},
+
+  // ── MUSEUMS ────────────────────────────────────────────────────────
+  {name:"Templo Mayor",category:"museum",area:"Centro Histórico",lat:19.4349,lng:-99.1316,
+   michelin:null,instagram:"templomayormx",website:"https://www.templomayor.inah.gob.mx",
+   hours:"Tue–Sun 9am–5pm · Closed Monday",
+   description:"The excavated ruins of the ancient Aztec city of Tenochtitlán, discovered beneath Centro. An incredible window into pre-Hispanic civilisation. Don't miss the on-site museum.",note:null},
+  {name:"Palacio de Bellas Artes",category:"museum",area:"Centro Histórico",lat:19.4352,lng:-99.1412,
+   michelin:null,instagram:"pba_cdmx",website:null,
+   hours:null,
+   description:"Mexico City's iconic art nouveau palace housing world-class murals by Diego Rivera and Orozco. Admire the breathtaking façade outside or explore the galleries within.",note:null},
+  {name:"Museo Nacional de Antropologia",category:"museum",area:"Chapultepec",lat:19.4258,lng:-99.1862,
+   michelin:null,instagram:"mna_inah",website:"https://mna.inah.gob.mx",
+   hours:"Tue–Sun 9am–7pm · Closed Monday",
+   description:"One of the greatest museums in the world — charting the entire history of Mesoamerican civilisation. Enormous, world-class and utterly unmissable. Allow a full afternoon.",note:null},
+  {name:"Frida Kahlo Museum (La Casa Azul)",category:"museum",area:"Coyoacan",lat:19.3530,lng:-99.1577,
+   michelin:null,instagram:"museofridakahlo",website:"https://museofridakahlo.org.mx",
+   hours:"Wed–Mon 10am–6pm · Closed Tuesday",
+   description:"The iconic blue house where Frida Kahlo was born, lived and died. Now a beautifully preserved museum with her art, personal belongings and intimate spaces. Moving and unmissable.",
+   note:"PRE-BOOK online. Closed Tuesdays.",booked:"Thu 9 Apr · 11:15"},
+  {name:"Casa Kahlo",category:"museum",area:"Coyoacan",lat:19.3548,lng:-99.1631,
+   michelin:null,instagram:null,website:null,
+   hours:"Wed–Mon 10am–6pm · Closed Tuesday",
+   description:"A newer museum in Coyoacan that was Frida Kahlo's family home. A fascinating companion visit to La Casa Azul with different artefacts and perspectives.",
+   note:"Closed Tuesdays."},
+  {name:"Museo Soumaya",category:"museum",area:"Polanco",lat:19.4402,lng:-99.2030,
+   michelin:null,instagram:"museo_soumaya",website:"https://museosoumaya.org",
+   hours:"Daily 10:30am–6:30pm",
+   description:"A striking free museum in Polanco covered in hexagonal aluminium tiles. Houses an extensive collection of Mexican and international art. The building itself is a landmark.",
+   note:"Free entry."},
+  {name:"Castillo de Chapultepec",category:"museum",area:"Chapultepec",lat:19.4220,lng:-99.1815,
+   michelin:null,instagram:null,website:null,
+   hours:"Tue–Sun 9am–5pm · Closed Monday",
+   description:"A lavish hilltop castle inside Parque Chapultepec with sweeping views over Mexico City. Houses the National History Museum with fascinating exhibits on Mexican history.",note:null},
+  {name:"Museo Nacional de Arte (MUNAL)",category:"museum",area:"Centro Histórico",lat:19.4358,lng:-99.1379,
+   michelin:null,instagram:"munal_mx",website:null,
+   hours:"Tue–Sun 10am–6pm · Closed Monday",
+   description:"Mexico's national art museum in a magnificent historic building on Calle Tacuba. Houses an extensive collection of Mexican art from the 16th to 20th century.",note:null},
+  {name:"Museo de Arte Moderno",category:"museum",area:"Chapultepec",lat:19.4265,lng:-99.1817,
+   michelin:null,instagram:"mam_mx",website:null,
+   hours:"Tue–Sun 10:15am–5:30pm · Closed Monday",
+   description:"A superb museum of modern art set inside Parque Chapultepec. Rotating exhibitions of 20th-century Mexican and international art in a beautiful park setting.",note:null},
+  {name:"Museo Anahuacalli",category:"museum",area:"Coyoacan",lat:19.3228,lng:-99.1439,
+   michelin:null,instagram:"museoanahuacalli",website:"https://museoanahuacalli.org.mx",
+   hours:"Tue–Sun 11am–5:30pm · Closed Monday",
+   description:"A dramatic volcanic-stone museum designed by Diego Rivera to house his pre-Hispanic artefact collection. One of the most architecturally striking and underrated museums in the city.",note:null},
+  {name:"Casa Luis Barragán",category:"museum",area:"Tacubaya",lat:19.4032,lng:-99.2000,
+   michelin:null,instagram:"casabarragan",website:"https://casaluisbarragan.org",
+   hours:"Mon–Fri tours ~10am–5pm · By appointment only",
+   description:"The UNESCO-listed home and studio of Mexico's greatest architect, Luis Barragán. An extraordinary spatial experience — emotional, colourful and deeply inspiring. Book ahead.",
+   note:"Must book in advance via the website."},
+  {name:"Biblioteca Vasconcelos",category:"landmark",area:"Buenavista",lat:19.4503,lng:-99.1472,
+   michelin:null,instagram:"bibliotecavasconcelos",website:"https://www.bibliotecavasconcelos.gob.mx",
+   hours:"Tue–Sun 8:30am–7:30pm · Closed Monday",
+   description:"An architectural marvel — a massive, light-filled public library with a whale skeleton suspended from the ceiling. One of the most extraordinary pieces of architecture in Mexico City. Free.",
+   note:"Free entry."},
+  {name:"Cineteca Nacional",category:"museum",area:"Coyoacan",lat:19.3606,lng:-99.1645,
+   michelin:null,instagram:"cinecanacional",website:"https://www.cinetecanacional.net",
+   hours:"Daily, screenings from ~12pm",
+   description:"Mexico's premier arthouse cinema and cultural centre, screening the best of Mexican and international film. A beautifully designed complex well worth visiting.",note:null},
+  {name:"Museo de Arte Popular",category:"museum",area:"Centro Histórico",lat:19.4326,lng:-99.1418,
+   michelin:null,instagram:null,website:null,
+   hours:"Tue–Sun 10am–6pm · Closed Monday",
+   description:"A vibrant and joyful museum celebrating Mexico's extraordinary folk art traditions — textiles, ceramics, masks and crafts from across the country across five floors of a beautiful 1930s building. Brilliant context before shopping for crafts.",note:null},
+
+  // ── LANDMARKS ──────────────────────────────────────────────────────
+  {name:"Catedral Metropolitana",category:"landmark",area:"Centro Histórico",lat:19.4352,lng:-99.1335,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"The largest cathedral in the Americas, built over nearly 250 years on top of an Aztec temple. A jaw-dropping piece of baroque architecture dominating the Zócalo.",note:null},
+  {name:"Zócalo (Plaza de la Constitución)",category:"landmark",area:"Centro Histórico",lat:19.4326,lng:-99.1332,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"Mexico City's vast and historic main plaza — one of the largest in the world. The political and cultural heart of the city, surrounded by monumental buildings.",note:null},
+  {name:"Casa de Los Azulejos",category:"landmark",area:"Centro Histórico",lat:19.4336,lng:-99.1395,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"The stunning 'House of Tiles' — a baroque building covered in blue-and-white Talavera tiles. Houses a Sanborns restaurant inside with a beautiful courtyard. Free to step in.",note:null},
+  {name:"Palacio Postal",category:"landmark",area:"Centro Histórico",lat:19.4338,lng:-99.1374,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"Often called the most beautiful post office in the world — an ornate early 20th-century building with an extraordinarily lavish interior. Free to enter and explore.",note:null},
+  {name:"Ángel de la Independencia",category:"landmark",area:"Reforma",lat:19.4272,lng:-99.1672,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"Mexico City's most iconic monument — a golden angel atop a towering column on Paseo de la Reforma. A symbol of Mexican independence and a classic city landmark.",note:null},
+  {name:"Fuente de Diana Cazadora",category:"landmark",area:"Reforma",lat:19.4285,lng:-99.1727,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"The elegant Diana the Huntress fountain on Paseo de la Reforma. A graceful Art Deco landmark and one of the city's most photographed monuments.",note:null},
+  {name:"Pirámide del Sol — Teotihuacan",category:"landmark",area:"Teotihuacan",lat:19.6925,lng:-98.8438,
+   michelin:null,instagram:null,website:null,
+   hours:"Daily 9am–5pm",
+   description:"One of the largest pyramids in the world at the heart of ancient Teotihuacan. Climb to the summit for staggering views over the Avenue of the Dead.",note:null},
+  {name:"Pirámide de la Luna — Teotihuacan",category:"landmark",area:"Teotihuacan",lat:19.6967,lng:-98.8462,
+   michelin:null,instagram:null,website:null,
+   hours:"Daily 9am–5pm",
+   description:"The Pyramid of the Moon at the northern end of the Avenue of the Dead. Slightly smaller but with equally impressive views looking back down the ceremonial boulevard.",note:null},
+  {name:"Plaza Garibaldi",category:"landmark",area:"Centro Histórico",lat:19.4390,lng:-99.1393,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"The famous Mariachi square in Centro. Come in the evening to hear roaming bands and sample mezcal — one of Mexico City's most atmospheric and entertaining experiences.",note:null},
+
+  // ── PARKS & AREAS ──────────────────────────────────────────────────
+  {name:"Alameda Central",category:"park",area:"Centro Histórico",lat:19.4356,lng:-99.1437,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"One of the oldest public parks in the Americas, sitting in the heart of Centro. A beautiful and historic green escape lined with fountains, sculptures and shady trees.",note:null},
+  {name:"Parque México",category:"park",area:"Condesa",lat:19.4133,lng:-99.1741,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"The gorgeous leafy heart of Condesa — a beautiful Art Deco park popular with dog walkers, joggers and picnickers. Surrounded by stunning early 20th-century architecture.",note:null},
+  {name:"Parque España",category:"park",area:"Roma Norte",lat:19.4194,lng:-99.1680,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"A quieter, relaxed park in Roma Norte popular with locals and their dogs. A great spot to unwind and watch the neighbourhood go by.",note:null},
+  {name:"Avenida Amsterdam",category:"park",area:"Condesa",lat:19.4128,lng:-99.1730,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"The oval-shaped boulevard at the heart of Condesa, lined with beautiful Art Deco buildings, restaurants and cafes. A wonderful street for a leisurely stroll or morning run.",note:null},
+  {name:"Parque Chapultepec",category:"park",area:"Chapultepec",lat:19.4202,lng:-99.1813,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"Mexico City's enormous green lung — one of the largest urban parks in the world. Home to museums, a castle, a zoo, a lake and endless forest trails. Allow a full day.",note:null},
+  {name:"Parque Lincoln",category:"park",area:"Polanco",lat:19.4314,lng:-99.1957,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"The beautiful leafy park at the centre of Polanco, flanked by boutiques and restaurants. A relaxed and elegant spot to begin exploring this upscale neighbourhood.",note:null},
+  {name:"Plaza Hidalgo & Jardín Centenario",category:"park",area:"Coyoacan",lat:19.3502,lng:-99.1621,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"The charming twin plazas at the heart of Coyoacan — colourful, tree-filled and full of life. A perfect base from which to explore one of the city's most characterful areas.",note:null},
+  {name:"Paseo de la Reforma",category:"park",area:"Reforma",lat:19.4272,lng:-99.1680,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"Mexico City's grand main boulevard, inspired by the Champs-Élysées and lined with monuments, skyscrapers and museums. On Sundays it closes to cars for a mass cycling event.",note:null},
+  {name:"Barrio Chino (Chinatown)",category:"park",area:"Centro Histórico",lat:19.4340,lng:-99.1370,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"Mexico City's compact but colourful Chinatown in Centro, decorated with vibrant hanging umbrellas. A fun and photogenic corner of the historic centre.",note:null},
+  {name:"Avenida Masaryk",category:"park",area:"Polanco",lat:19.4284,lng:-99.1971,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"Polanco's luxurious main shopping street, lined with high-end international boutiques, designer stores and opulent restaurants. Mexico City's answer to Rodeo Drive.",note:null},
+  {name:"Juarez Neighbourhood",category:"park",area:"Juarez",lat:19.4252,lng:-99.1565,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"A leafy and café-filled neighbourhood between Centro and Roma. Full of independent coffee shops, galleries and restaurants. A vibrant area to explore on foot.",note:null},
+
+  // ── ACTIVITIES ─────────────────────────────────────────────────────
+  {name:"Hot Air Balloon — Teotihuacan",category:"activity",area:"Teotihuacan",lat:19.6920,lng:-98.8430,
+   michelin:null,instagram:null,website:null,
+   hours:"Sunrise departures only (~6am)",
+   description:"A sunrise hot air balloon ride over the Teotihuacan pyramids — one of the most spectacular experiences in all of Mexico. The views from above are extraordinary.",
+   note:"Pre-book well in advance. Requires ~1hr transfer from city."},
+  {name:"EcoBici Cycling — Reforma (Sundays)",category:"activity",area:"Reforma",lat:19.4268,lng:-99.1650,
+   michelin:null,instagram:null,website:"https://ecobici.cdmx.gob.mx",
+   hours:"Sundays only, ~8am–2pm",
+   description:"On Sundays, Paseo de la Reforma closes to cars for the Muévete en Bici event. Rent an EcoBici bike and cycle the grand boulevard — one of the best free things to do in CDMX.",
+   note:"Sundays only."},
+  {name:"Swan Boat — Lago Chapultepec",category:"activity",area:"Chapultepec",lat:19.4190,lng:-99.1835,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"Rent a swan-shaped pedalo boat on the lake inside Parque Chapultepec. A quintessential and charming Mexico City experience, popular with all ages.",note:null},
+  {name:"Xochimilco Trajinera Boat Tour",category:"activity",area:"Xochimilco",lat:19.2572,lng:-99.1046,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"Board a colourful wooden trajinera boat and cruise the ancient canals of Xochimilco. Mariachi bands, food sellers and carnival atmosphere. Take the Tren Ligera or Uber.",
+   note:"Best on a Sunday for the full festive atmosphere."},
+  {name:"Lucha Libre (Mexican Wrestling)",category:"activity",area:"Centro",lat:19.4248,lng:-99.1530,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"A quintessentially Mexican experience — watch masked luchadores perform high-energy theatrical wrestling at Arena México. Loud, colourful and utterly unique.",
+   note:null,booked:"Fri 10 Apr · 20:30"},
+  {name:"Mercado de la Lagunilla",category:"market",area:"Tepito/Guerrero",lat:19.4412,lng:-99.1356,
+   michelin:null,instagram:null,website:null,
+   hours:"Sun only (main market day)",
+   description:"One of Mexico City's great flea and antiques markets. On Sundays the streets fill with stalls selling vintage furniture, curiosities, art and antiques. A treasure hunter's paradise.",
+   note:"Best visited on Sundays."},
+  {name:"Pasaje El Parián",category:"activity",area:"Coyoacan",lat:19.3500,lng:-99.1618,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"A beautiful covered arcade of artisan shops right next to Tacos del Valle in Coyoacan. Browse handmade crafts, jewellery and local art while waiting for your table.",note:null},
+  {name:"Club América vs Cruz Azul — Estadio Olímpico",category:"activity",area:"Ciudad Universitaria",lat:19.3054,lng:-99.1882,
+   michelin:null,instagram:null,website:"https://www.ticketmaster.com.mx",
+   hours:"Sat 11 Apr · 9pm kick-off",
+   description:"A Liga MX derby between two of Mexico City's biggest clubs at the iconic Estadio Olímpico Universitario on the stunning UNAM campus. Mexican football has an extraordinary atmosphere — expect noise, colour and passion from first whistle.",
+   note:"Book tickets in advance via Ticketmaster."},
+
+  // ── MARKETS ────────────────────────────────────────────────────────
+  {name:"Mercado Coyoacan",category:"market",area:"Coyoacan",lat:19.3491,lng:-99.1619,
+   michelin:null,instagram:null,website:null,hours:null,
+   description:"A lively covered market in Coyoacan packed with food stalls, crafts and local produce. Famous for its tostadas — piled high with toppings. Don't leave without trying them.",note:null},
+  {name:"Mercado La Ciudadela",category:"market",area:"Centro",lat:19.4296,lng:-99.1474,
+   michelin:null,instagram:null,website:null,
+   hours:"Daily 11am–7pm",
+   description:"Mexico City's premier artisan market — a vast covered space packed with stalls selling handmade crafts, textiles, ceramics, jewellery and folk art from across Mexico. The best place in the city for high-quality, authentic souvenirs.",note:null},
+
+  // ── SHOPPING ───────────────────────────────────────────────────────
+  {name:"Fueguia 1833",category:"shopping",area:"Roma Norte",lat:19.4231,lng:-99.1599,
+   michelin:null,instagram:"fueguia1833",website:"https://www.fueguia.com",
+   hours:"Mon–Sat 11am–8pm · Sun 12pm–6pm",
+   description:"An extraordinary luxury fragrance house with a beautiful boutique in Polanco. Each perfume is hand-made in small batches using rare natural ingredients. A sensory experience.",note:null},
+  {name:"Xinú Perfumes",category:"shopping",area:"Polanco",lat:19.4306,lng:-99.1959,
+   michelin:null,instagram:"xinuperfumes",website:null,
+   hours:"Mon–Sat 11am–8pm · Closed Sunday",
+   description:"Described as the chicest perfume store in CDMX — a lush botanical space in Roma Norte dedicated to natural fragrances. A truly unique and beautiful shopping experience.",note:null},
+  {name:"Donde Clara",category:"shopping",area:"Roma Norte",lat:19.4172,lng:-99.1665,
+   michelin:null,instagram:"dondeclara",website:null,
+   hours:null,
+   description:"A beloved artisan shop in Roma with a beautifully curated selection of Mexican crafts, ceramics, textiles and design objects. One of the best spots in the city for quality souvenirs.",note:null},
+  {name:"Feria Americana",category:"shopping",area:"Roma Norte",lat:19.4204,lng:-99.1619,
+   michelin:null,instagram:"feriaamericanaoficial",website:null,
+   hours:null,
+   description:"A curated vintage clothing store in Roma Norte with a carefully selected edit of second-hand fashion. A favourite among the neighbourhood's style-conscious locals.",note:null},
+  // ── SHOPPING — CERAMICS & ARTISAN ────────────────────────────────────────
+  {name:"Onora Casa",category:"shopping",area:"Polanco",lat:19.4336,lng:-99.1873,
+   michelin:null,instagram:"onoracasa",website:"https://onoracasa.com/en",
+   hours:"Mon–Sat 11am–7pm · Closed Sunday",
+   description:"One of the most celebrated artisan homeware shops in CDMX — beautifully curated ceramics, serveware, linens, and artwork, all handmade by artisans from across Mexico. Frequently featured in AFAR, goop, and international design press.",note:null},
+  {name:"Perla Valtierra",category:"shopping",area:"Juárez",lat:19.4263,lng:-99.1569,
+   michelin:null,instagram:"perlavaltierra",website:"https://perlavaltierra.shop",
+   hours:"Tue–Sat 11am–7pm · Sun 11am–6pm",
+   description:"The showroom of Mexico's most internationally acclaimed ceramicist. Her earthen, matte-finish pieces blend European minimalism with Japanese and Mexican craft. The only place to find her full range — and one of the most distinctive shopping experiences in the city.",note:null},
+  {name:"Ensamble Artesano",category:"shopping",area:"Polanco",lat:19.4338,lng:-99.1941,
+   michelin:null,instagram:"ensambleartesano",website:"https://ensambleartesano.org/en",
+   hours:"Mon–Sun 10am–8pm",
+   description:"A non-profit artisan boutique supporting over 3,000 artisans from 22 Mexican states — pottery, ceramics, waist-loom weaving, metalwork, lacquerware, and beadwork. The most ethically rigorous artisan shop in the city.",note:null},
+  {name:"Mercado de Artesanías La Ciudadela",category:"market",area:"Centro",lat:19.4271,lng:-99.1490,
+   michelin:null,instagram:null,website:null,
+   hours:"Mon–Sat 10am–7pm · Sun 10am–6pm",
+   description:"The single best one-stop destination for traditional Mexican pottery and ceramics in CDMX, with 350+ vendors. Find Talavera, Oaxacan black clay, Tonalá painted pottery, alebrijes, and Otomi textiles. Originally opened for the 1968 Olympics.",note:"Prices are negotiable."},
+  // ── SHOPPING — VINTAGE & ANTIQUES ────────────────────────────────────────
+  {name:"Void",category:"shopping",area:"Condesa",lat:19.4139,lng:-99.1735,
+   michelin:null,instagram:"void_mx",website:"https://voidmx.com",
+   hours:"Mon–Sun 11am–8pm",
+   description:"Set inside a 1930s art deco residence in Condesa, divided into five themed rooms. Stocks high-end vintage — American western wear, 1960s–70s music memorabilia, French luxury labels, and rare band merch. One of the most beautiful retail spaces in the city.",note:null},
+  {name:"Casa Ananda",category:"shopping",area:"Roma Norte",lat:19.4140,lng:-99.1646,
+   michelin:null,instagram:"casa.ananda157",website:"https://casananda.mx",
+   hours:"Mon–Sat 11am–8pm · Sun 11am–7:30pm",
+   description:"A 1900s building with three floors and 11 rooms, filled with curated vintage clothing, vinyl records, retro sunglasses, and collectibles from the 1950s to 2000s. Wandering room to room feels like a treasure hunt through different decades.",note:null},
+  {name:"Loose Blues",category:"shopping",area:"Juárez",lat:19.4278,lng:-99.1585,
+   michelin:null,instagram:"looseblues",website:"https://looseblues.mx",
+   hours:"Mon–Sat 12pm–10pm · Sun 1pm–8pm",
+   description:"A complete cultural destination: vintage menswear in the basement, vinyl records and zines at ground level, women's vintage above — and a Japanese-Mexican fusion restaurant upstairs. Co-owned by a Mexican and a Japanese founder. Wholly unlike anywhere else in the city.",note:null},
+  {name:"Plaza del Ángel",category:"shopping",area:"Juárez",lat:19.4251,lng:-99.1657,
+   michelin:null,instagram:null,website:null,
+   hours:"Mon–Fri 11am–7pm · Sat 10am–5pm",
+   description:"An indoor antique centre with 40+ shops selling mid-century furniture, ceramics, chandeliers, paintings, and art objects. The closest thing to a European antiques arcade in CDMX. Saturday the outdoor tianguis expands to 100+ additional vendors.",note:"Best visited on a Saturday for the outdoor market."},
+  {name:"Bazar Resiliente",category:"market",area:"Roma Norte",lat:19.4195,lng:-99.1609,
+   michelin:null,instagram:"bazarresistente",website:null,
+   hours:null,
+   description:"A vibrant market and bazaar in Roma Norte featuring local designers, artisans and independent brands. Shopping in CDMX is elite — and this is one of the best examples.",note:null},
+];
+
+
+// ── PRICE LEVELS (1=$  2=$$  3=$$$  4=$$$$  0=free) ────────────────────────
+const PRICES={
+  "Restaurante Rosetta":3,"Blanco Colima":3,"Esquina Común":2,"Quintonil":4,"Pujol":4,
+  "La Gruta":2,"Jenni's Quesadillas":1,"El Tizoncitp":1,"El Pescadito":1,"Gracias Madre":2,
+  "Taverna":3,"Martinez":3,"Maizajo":3,
+  "El Turix":1,"Taqueria La Cocuyos":1,"Taqueria Orinoco":1,"Taqueria El Turco":1,
+  "El Califa de León":1,"Expendio de Maíz":2,"Mi Compa Chava":1,"Tacos del Valle":1,
+  "Tacos El Paisa":1,"El Compita":1,
+  "Pasteleria Ideal":1,"Panaderia Rosetta":1,"Finca Don Porfirio":1,"Cafeteria El Pendulo":1,
+  "Farmacia Internacional":2,"Cafe Nin":2,"Ritmo Café":2,"Odette":1,"Sede Café":1,"Kiyo":1,
+  "Lardo Mexico":2,"Librería Porrúa Chapultepec":1,"Curva Cafe":1,"Churrería El Moro":1,"El Parador":1,
+  "Handshake Speakeasy":3,"Tlecan":3,"Bar Mauro":3,"Café de Nadie":2,"Koto del Valle":2,
+  "Salon Palomilla":2,"Rimessa":2,"Terraza Catedral":2,"Miralto Bar — Torre Latinoamericana":2,
+  "Templo Mayor":1,"Palacio de Bellas Artes":0,"Museo Nacional de Antropologia":1,
+  "Frida Kahlo Museum (La Casa Azul)":1,"Casa Kahlo":1,"Museo Soumaya":0,
+  "Castillo de Chapultepec":1,"Museo Nacional de Arte (MUNAL)":1,"Museo de Arte Moderno":1,
+  "Museo Anahuacalli":1,"Casa Luis Barragán":2,"Biblioteca Vasconcelos":0,"Cineteca Nacional":1,
+  "Catedral Metropolitana":0,"Zócalo (Plaza de la Constitución)":0,"Casa de Los Azulejos":0,
+  "Palacio Postal":0,"Ángel de la Independencia":0,"Fuente de Diana Cazadora":0,
+  "Pirámide del Sol — Teotihuacan":1,"Pirámide de la Luna — Teotihuacan":1,"Plaza Garibaldi":0,
+  "Alameda Central":0,"Parque México":0,"Parque España":0,"Avenida Amsterdam":0,
+  "Parque Chapultepec":0,"Parque Lincoln":0,"Plaza Hidalgo & Jardín Centenario":0,
+  "Paseo de la Reforma":0,"Barrio Chino (Chinatown)":0,"Avenida Masaryk":0,"Juarez Neighbourhood":0,
+  "Hot Air Balloon — Teotihuacan":3,"EcoBici Cycling — Reforma (Sundays)":1,
+  "Swan Boat — Lago Chapultepec":1,"Xochimilco Trajinera Boat Tour":1,
+  "Lucha Libre (Mexican Wrestling)":1,"Mercado de la Lagunilla":0,"Pasaje El Parián":0,
+  "Mercado Coyoacan":1,
+  "Fueguia 1833":4,"Xinú Perfumes":3,"Donde Clara":2,"Feria Americana":1,"Bazar Resiliente":1,
+  // New entries
+  "Contramar":3,"Entremar":3,"Botánico":3,"La Bonvi":3,"Maximo Bistrot":3,"Em":4,"Carmela y Sal":2,
+  "La Hortaliza":1,"Siembra Tortilleria":1,
+  "Fougasse":1,"Huset":2,"Ficelle":1,"Saint":1,"Green Rhino":1,
+  "Salon Ríos":1,"Da Rosa":2,"Palapa Cantina":2,
+  "Museo de Arte Popular":1,
+  "Mercado La Ciudadela":0,
+  "Club América vs Cruz Azul — Estadio Olímpico":1,
+};
+
+// ── MAP SETUP ─────────────────────────────────────────────────────────────
+const map = L.map('map',{zoomControl:false}).setView([19.4200,-99.1650],12);
+L.control.zoom({position:'topright'}).addTo(map);
+
+// CartoDB Voyager
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains:'abcd',maxZoom:19
+}).addTo(map);
+
+// Create markers
+const markerMap = new Map();
+PLACES.forEach(p => {
+  if(!p.lat) return;
+  const cat = CATS[p.category];
+  const m = L.circleMarker([p.lat,p.lng],{
+    radius:7, fillColor:cat.color, color:'#fff',
+    weight:2, opacity:1, fillOpacity:0.88
+  });
+  m.bindPopup(
+    `<strong>${p.name}</strong>`+
+    `<div class="popup-sub">${cat.icon} ${p.area}</div>`+
+    (p.hours?`<div class="popup-hours">🕐 ${p.hours}</div>`:''),
+    {maxWidth:220}
+  );
+  m.on('click',()=>{
+    document.querySelectorAll('.card').forEach(c=>c.classList.remove('active'));
+    const card = document.querySelector(`.card[data-name="${CSS.escape(p.name)}"]`);
+    if(card){
+      card.classList.add('active');
+      document.querySelector('.right-panel').scrollTo({top:card.offsetTop-60,behavior:'smooth'});
+    }
+  });
+  m.addTo(map);
+  markerMap.set(p.name, m);
+});
+
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let activeFilter='all', searchQuery='', isFitting=false;
+
+function matchesCategoryAndSearch(p){
+  const q=searchQuery.toLowerCase();
+  const mf = activeFilter==='all'||p.category===activeFilter;
+  const ms = !q||
+    p.name.toLowerCase().includes(q)||
+    p.area.toLowerCase().includes(q)||
+    p.category.toLowerCase().includes(q)||
+    CATS[p.category].label.toLowerCase().includes(q)||
+    (p.description&&p.description.toLowerCase().includes(q));
+  return mf&&ms;
+}
+
+function applyFilterAndSearch(){
+  const preBounds = PLACES.filter(matchesCategoryAndSearch);
+  // Update marker visibility
+  PLACES.forEach(p=>{
+    const m=markerMap.get(p.name);
+    if(!m) return;
+    preBounds.includes(p)?m.addTo(map):map.removeLayer(m);
+  });
+  // Fit map to filtered set
+  const pts=preBounds.filter(p=>p.lat).map(p=>[p.lat,p.lng]);
+  if(pts.length>1){
+    isFitting=true;
+    map.fitBounds(pts,{padding:[28,28],maxZoom:14,animate:true});
+  } else if(pts.length===1){
+    isFitting=true;
+    map.setView(pts[0],15,{animate:true});
+  } else {
+    renderCards(preBounds);
+  }
+}
+
+function renderCards(forcedList){
+  const bounds = map.getBounds();
+  const all = PLACES.filter(matchesCategoryAndSearch);
+  const visible = forcedList || all.filter(p=>!p.lat||bounds.contains([p.lat,p.lng]));
+  const inView = visible.length < all.length;
+
+  // Status
+  document.getElementById('mapStatus').textContent=
+    `${visible.length} place${visible.length!==1?'s':''} ${inView?'in view':'shown'}`;
+  document.getElementById('resultsCount').textContent=
+    `${visible.length} place${visible.length!==1?'s':''}`;
+  document.getElementById('inViewTag').textContent=
+    inView?`of ${all.length} total (pan to explore)`:'';
+
+  const grid=document.getElementById('grid');
+  if(visible.length===0){
+    grid.innerHTML=`<div class="no-results"><p>No results</p><span>Try a different search, filter, or move the map</span></div>`;
+    return;
+  }
+
+  const CAT_ORDER=['restaurant','taqueria','cafe','bar','museum','landmark','park','activity','market','shopping'];
+  const sorted=[...visible].sort((a,b)=>{
+    const ci=CAT_ORDER.indexOf(a.category)-CAT_ORDER.indexOf(b.category);
+    if(ci!==0)return ci;
+    function pri(p){
+      if(p.michelin===2)return[1,0];
+      if(p.michelin===1)return[2,0];
+      if(p.michelin==="rec")return[3,0];
+      if(p.note){
+        const l=p.note.toLowerCase();
+        if(l.includes('#')||l.includes("world's")||l.includes('best bar')){
+          const m=p.note.match(/#(\d+)/);
+          return[4,m?parseInt(m[1]):999];
+        }
+      }
+      return[5,0];
+    }
+    const[pa,na]=pri(a),[pb,nb]=pri(b);
+    return pa!==pb?pa-pb:na-nb;
+  });
+
+  grid.innerHTML=sorted.map(p=>{
+    const cat=CATS[p.category];
+    const price=PRICES[p.name]??null;
+    const esc=p.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+
+    const pHtml=price===null?'':
+      price===0?`<span class="price-free">Free</span>`:
+      `<span class="price-display"><span class="price-lit">${['','$','$$','$$$','$$$$'][price]}</span><span class="price-dim">${'$'.repeat(4-price)}</span></span>`;
+
+    const michelinHtml=p.michelin
+      ?`<div class="michelin-row">
+           ${p.michelin==="rec"
+             ?`<span class="michelin-rec">Bib Michelin</span>`
+             :`<span class="michelin-badge">${'★'.repeat(p.michelin)} Michelin${p.michelin>1?' '+p.michelin+' Stars':' Star'}</span>`}
+         </div>`
+      :'';
+
+    const hoursHtml=p.hours
+      ?`<div class="hours-tag">🕐 <span class="hours-val">${p.hours}</span></div>`
+      :'';
+
+    const noteHtml=(()=>{
+      if(!p.note)return'';
+      const l=p.note.toLowerCase();
+      if(l.includes('book')||l.includes('advance')||l.includes('reservation'))
+        return`<div class="note-booking">⚠️ ${p.note}</div>`;
+      if(l.includes('#')||l.includes('michelin')||l.includes("world's")||l.includes('best bar'))
+        return`<div class="note-award">🏆 ${p.note}</div>`;
+      return`<div class="note-info">${p.note}</div>`;
+    })();
+
+    const linksHtml=(p.instagram||p.website)
+      ?`<div class="card-links">
+           ${p.instagram?`<a href="https://instagram.com/${p.instagram}" target="_blank" rel="noopener"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg> Instagram</a>`:''}
+           ${p.website?`<a href="${p.website}" target="_blank" rel="noopener"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Website</a>`:''}
+         </div>`
+      :'';
+
+    return`<div class="card" data-name="${p.name}" onclick="zoomTo('${esc}')">
+      <div class="card-top">
+        <h3>${p.name}</h3>
+        <span class="badge cat-${p.category}">${cat.icon} ${cat.label}</span>
+      </div>
+      ${michelinHtml}
+      <div class="meta-row">
+        <span>📌 ${p.area}</span>
+        ${pHtml?`<span class="meta-sep">·</span>${pHtml}`:''}
+      </div>
+      ${hoursHtml}
+      <p class="card-desc">${p.description}</p>
+      ${noteHtml}
+      ${linksHtml}
+    </div>`;
+  }).join('');
+}
+
+function zoomTo(name){
+  const m=markerMap.get(name);
+  const p=PLACES.find(x=>x.name===name);
+  if(m&&p&&p.lat){
+    isFitting=true;
+    map.setView([p.lat,p.lng],16,{animate:true});
+    setTimeout(()=>m.openPopup(),300);
+    if(window.innerWidth<=720){
+      document.querySelector('.map-area').scrollIntoView({behavior:'smooth',block:'start'});
+    }
+  }
+  document.querySelectorAll('.card').forEach(c=>c.classList.remove('active'));
+  const card=document.querySelector(`.card[data-name="${name}"]`);
+  if(card) card.classList.add('active');
+}
+
+// Map move → update cards
+map.on('moveend zoomend',()=>{
+  if(isFitting){isFitting=false;return;}
+  renderCards();
+});
+
+// After programmatic fit, render
+map.on('moveend',()=>{
+  if(!isFitting) renderCards();
+});
+
+// Controls
+const searchEl   = document.getElementById('searchInput');
+const searchHint = document.getElementById('searchHint');
+
+function updateSearchHint(){
+  const q = searchEl.value.trim();
+  if(!q){
+    searchHint.textContent='';
+    searchHint.classList.remove('visible','no-results');
+    return;
+  }
+  const n = PLACES.filter(p=>matchesCategoryAndSearch(p)).length;
+  if(n===0){
+    searchHint.textContent='No results';
+    searchHint.classList.add('visible','no-results');
+  } else {
+    searchHint.textContent=`${n} place${n!==1?'s':''} match "${q}"`;
+    searchHint.classList.add('visible');
+    searchHint.classList.remove('no-results');
+  }
+}
+
+searchEl.addEventListener('focus',()=>{ document.body.classList.add('searching'); });
+searchEl.addEventListener('blur', ()=>{ document.body.classList.remove('searching'); });
+searchEl.addEventListener('keydown',e=>{ if(e.key==='Enter') searchEl.blur(); });
+
+searchEl.addEventListener('input',e=>{
+  searchQuery=e.target.value;
+  applyFilterAndSearch();
+  updateSearchHint();
+});
+document.querySelectorAll('.filter-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter=btn.dataset.filter;
+    applyFilterAndSearch();
+  });
+});
+document.getElementById('resetView').addEventListener('click',()=>{
+  activeFilter='all';
+  searchQuery='';
+  searchEl.value='';
+  updateSearchHint();
+  document.body.classList.remove('searching');
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.filter-btn[data-filter="all"]').classList.add('active');
+  PLACES.forEach(p=>{ const m=markerMap.get(p.name); if(m) m.addTo(map); });
+  isFitting=true;
+  map.setView([19.4200,-99.1650],12,{animate:true});
+});
+
+// Init — show all markers at default view without fitting bounds
+PLACES.forEach(p=>{ const m=markerMap.get(p.name); if(m) m.addTo(map); });
+renderCards();
+</script>
+</body>
+</html>
